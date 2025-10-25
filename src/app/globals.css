@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== Base / Theme ===== */
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  @apply bg-neutral-950 text-neutral-200 antialiased;
+}
+
+a {
+  @apply text-neutral-100 hover:text-white;
+}
+
+/* ===== Reusable layout helpers ===== */
+.container-max {
+  @apply max-w-7xl mx-auto px-4 md:px-6;
+}
+
+.card {
+  @apply rounded-2xl border border-white/10 bg-neutral-900/60 backdrop-blur;
+}
+
+.section-title {
+  @apply text-xl md:text-2xl font-semibold tracking-tight;
+}
+
+.subtle {
+  @apply text-neutral-400;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium
+         bg-white/10 text-neutral-100 hover:bg-white/15 transition-colors;
+}
+
+.btn-primary {
+  @apply bg-white text-black hover:bg-neutral-100;
+}
+
+.btn-ghost {
+  @apply bg-transparent hover:bg-white/10;
+}
+
+/* ===== Pills / badges / price ===== */
+.badge {
+  @apply inline-flex items-center px-2 py-1 rounded-lg bg-white/10 text-xs text-neutral-200;
+}
+
+.price {
+  @apply text-xl md:text-2xl font-semibold;
+}
+
+/* ===== Forms ===== */
+.input, input[type="text"], input[type="number"], input[type="search"], textarea, select {
+  @apply w-full rounded-xl border border-white/10 bg-neutral-900/70 px-3 py-2
+         text-sm placeholder-neutral-500 outline-none focus:ring-2 focus:ring-white/20;
+}
+
+select {
+  @apply pr-8;
+}
+
+/* ===== HIDE number spinners (ALL number inputs) ===== */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield; /* Firefox */
+  appearance: textfield;      /* Safari/Chrome новые */
+}
+
+/* Optionally: only when you add class="no-spinner" */
+input.no-spinner[type="number"]::-webkit-outer-spin-button,
+input.no-spinner[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input.no-spinner[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* ===== Utilities ===== */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Images look nicer on dark bg */
+img { image-rendering: -webkit-optimize-contrast; }
