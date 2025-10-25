@@ -1,18 +1,12 @@
 // src/lib/prisma.ts
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '@prisma/client';
 
-declare global {
-  // чтобы TypeScript не ругался на global.prisma
-  // eslint-disable-next-line no-var
-  var prisma: PrismaClient | undefined;
-}
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 export const prisma =
-  global.prisma ??
+  globalForPrisma.prisma ??
   new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["query", "warn", "error"] : ["warn", "error"],
-    errorFormat: "pretty",
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
   });
 
-// в проде создаём один инстанс на процесс, в dev кешируем на global
-if (process.env.NODE_ENV !== "production") global.prisma = prisma;
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;

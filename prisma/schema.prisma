@@ -5,34 +5,39 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  // через pgbouncer — для рантайма (Vercel)
+  // В РАНТАЙМЕ (сервер) Prisma должна ходить через pgbouncer (pooled URL)
   url       = env("DATABASE_URL")
-  // прямое подключение — для миграций
-  directUrl = env("DATABASE_POSTGRES_URL_NON_POOLING")
+  // Для миграций/сидинга — прямое соединение (без pgbouncer)
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
+/** Модели приложения */
 model Car {
-  id           Int      @id @default(autoincrement())
-  slug         String   @unique
+  id           Int     @id @default(autoincrement())
+  slug         String  @unique
   title        String
   brand        String
   model        String
-  carClass     String   @default("")
+  carClass     String  @default("")        // business | suv | minibus | premium | ""
   year         Int
   pricePerDay  Int
   fuel         String
   transmission String
   seats        Int
-  engineVolume String   @default("")
-  consumption  String   @default("")
-  price1d      Int      @default(0)
-  price2_4     Int      @default(0)
-  price5_15    Int      @default(0)
-  price16_30   Int      @default(0)
+  engineVolume String  @default("")        // "2.5L"
+  consumption  String  @default("")        // "7.4 L/100 km"
+
+  price1d      Int     @default(0)
+  price2_4     Int     @default(0)
+  price5_15    Int     @default(0)
+  price16_30   Int     @default(0)
+
   coverImage   String?
-  imagesCsv    String   @default("")
-  description  String   @default("")
-  isFeatured   Boolean  @default(false)
+  imagesCsv    String  @default("")
+  description  String  @default("")
+
+  isFeatured   Boolean @default(false)
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
