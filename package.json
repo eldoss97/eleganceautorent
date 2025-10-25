@@ -1,32 +1,41 @@
 {
   "name": "elegance-autorent",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
+
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+
     "postinstall": "prisma generate",
-    "db:push": "prisma db push",
-    "seed": "tsx prisma/seed.ts"
+    "postbuild": "prisma migrate deploy",
+
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "prisma:reset": "prisma migrate reset --force"
   },
+
   "dependencies": {
-    "@prisma/client": "^5.19.1",
+    "@prisma/client": "6.18.0",
     "next": "14.2.5",
     "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "zod": "^3.23.8",
-    "date-fns": "^3.6.0",
-    "clsx": "^2.1.1"
+    "react-dom": "18.3.1"
   },
+
   "devDependencies": {
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.44",
-    "prisma": "^5.19.1",
-    "tailwindcss": "^3.4.10",
-    "tsx": "^4.16.2",
-    "typescript": "^5.6.3",
-    "@types/node": "^20.14.12",
-    "@types/react": "^18.3.3"
+    "prisma": "6.18.0",
+    "@types/node": "24.9.1",
+    "@types/react": "19.2.2",
+    "autoprefixer": "10.4.21",
+    "postcss": "8.5.6",
+    "tailwindcss": "3.4.13",
+    "typescript": "5.6.3"
+  },
+
+  "engines": {
+    "node": ">=18.17.0"
   }
 }

@@ -6,6 +6,8 @@ import { FiltersBar } from "@/components/FiltersBar";
 import CarCardPremium from "@/components/CarCardPremium";
 import Link from "next/link";
 
+export const runtime = 'nodejs';
+
 export const revalidate = 0;
 
 // Допустимые значения класса в БД
