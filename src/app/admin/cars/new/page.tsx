@@ -38,13 +38,35 @@ const slugify = (s: string) =>
     .replace(/[^a-z0-9]+/gi, '-')
     .replace(/^-+|-+$/g, '');
 
+// ПУБЛИЧНЫЕ ENV (должны быть заданы в Vercel → Project → Settings → Environment Variables)
 const CLOUD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
-const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME; // опционально
+const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
+
+// ---------- прямой аплоад через fetch (альтернатива виджету) ----------
+async function uploadToCloudinary(file: File): Promise<string> {
+  if (!CLOUD_NAME || !CLOUD_PRESET) {
+    throw new Error('Не заданы NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME или NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET');
+  }
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', CLOUD_PRESET);
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+    method: 'POST',
+    body: fd,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || 'Upload failed');
+  return data.secure_url as string; // публичная ссылка
+}
+// ---------------------------------------------------------------------
 
 export default function AdminNewCarPage() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [notice, setNotice] = useState<string>('');
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
 
   const [form, setForm] = useState<CarForm>({
     slug: '',
@@ -400,11 +422,19 @@ export default function AdminNewCarPage() {
                   onChange={onChange('coverImage')}
                 />
 
+                {/* Вариант 1: Виджет Cloudinary */}
                 <CldUploadWidget
-                  options={CLOUD_NAME ? { cloudName: CLOUD_NAME } : undefined}
                   uploadPreset={CLOUD_PRESET}
-                  onUpload={(result) => {
-                    // @ts-ignore
+                  options={{
+                    cloudName: CLOUD_NAME,
+                    multiple: false,
+                    sources: ['local', 'camera', 'url'],
+                  }}
+                  onError={(err) => {
+                    console.error('Cloudinary error (cover):', err);
+                    alert('Ошибка загрузки в Cloudinary (обложка). Проверьте preset и домены.');
+                  }}
+                  onUpload={(result: any) => {
                     const url = result?.info?.secure_url as string | undefined;
                     if (url) set('coverImage', url);
                   }}
@@ -419,6 +449,30 @@ export default function AdminNewCarPage() {
                     </button>
                   )}
                 </CldUploadWidget>
+
+                {/* Вариант 2: Прямой аплоад */}
+                <label className="cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800">
+                  {uploadingCover ? 'Загружаем…' : 'Файл…'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      try {
+                        setUploadingCover(true);
+                        const url = await uploadToCloudinary(f);
+                        set('coverImage', url);
+                      } catch (err: any) {
+                        console.error(err);
+                        alert('Upload error: ' + (err?.message || err));
+                      } finally {
+                        setUploadingCover(false);
+                      }
+                    }}
+                  />
+                </label>
               </div>
             </div>
 
@@ -429,10 +483,7 @@ export default function AdminNewCarPage() {
               {form.gallery.length > 0 ? (
                 <div className="mb-3 grid grid-cols-3 gap-2">
                   {form.gallery.map((url) => (
-                    <div
-                      key={url}
-                      className="group relative overflow-hidden rounded-lg border border-zinc-900"
-                    >
+                    <div key={url} className="group relative overflow-hidden rounded-lg border border-zinc-900">
                       <img src={url} alt="" className="h-24 w-full object-cover" />
                       <button
                         type="button"
@@ -464,7 +515,6 @@ export default function AdminNewCarPage() {
                     }
                   }}
                 />
-
                 <button
                   type="button"
                   onClick={(e) => {
@@ -480,11 +530,15 @@ export default function AdminNewCarPage() {
                   +
                 </button>
 
+                {/* Виджет Cloudinary (множественный) */}
                 <CldUploadWidget
-                  options={CLOUD_NAME ? { cloudName: CLOUD_NAME, multiple: true } : { multiple: true }}
                   uploadPreset={CLOUD_PRESET}
-                  onUpload={(result) => {
-                    // @ts-ignore
+                  options={{ cloudName: CLOUD_NAME, multiple: true, sources: ['local', 'camera', 'url'] }}
+                  onError={(err) => {
+                    console.error('Cloudinary error (gallery):', err);
+                    alert('Ошибка загрузки (галерея).');
+                  }}
+                  onUpload={(result: any) => {
                     const url = result?.info?.secure_url as string | undefined;
                     if (url) set('gallery', [...form.gallery, url]);
                   }}
@@ -499,6 +553,35 @@ export default function AdminNewCarPage() {
                     </button>
                   )}
                 </CldUploadWidget>
+
+                {/* Прямой аплоад (множественный) */}
+                <label className="cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800">
+                  {uploadingGallery ? 'Загружаем…' : 'Файлы…'}
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+                      try {
+                        setUploadingGallery(true);
+                        const uploaded: string[] = [];
+                        for (const f of files) {
+                          const url = await uploadToCloudinary(f);
+                          uploaded.push(url);
+                        }
+                        set('gallery', [...form.gallery, ...uploaded]);
+                      } catch (err: any) {
+                        console.error(err);
+                        alert('Upload error: ' + (err?.message || err));
+                      } finally {
+                        setUploadingGallery(false);
+                      }
+                    }}
+                  />
+                </label>
               </div>
             </div>
 
