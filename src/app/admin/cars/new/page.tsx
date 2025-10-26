@@ -4,6 +4,18 @@ import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CldUploadWidget } from 'next-cloudinary';
 
+/* -----------------------------------------------------------
+   Эта страница НЕ должна падать, если Cloudinary не настроен.
+   Поэтому мы не используем "!" у ENV и скрываем кнопки аплоада,
+   когда переменные отсутствуют.
+----------------------------------------------------------- */
+export const dynamic = 'force-dynamic'; // на всякий случай — не SSG
+
+// Публичные ENV (задаются в Vercel → Project → Settings → Environment Variables)
+const CLOUD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
+const CLOUD_NAME   = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
+const cloudOk      = !!CLOUD_PRESET && !!CLOUD_NAME;
+
 type CarForm = {
   slug: string;
   title: string;
@@ -22,7 +34,7 @@ type CarForm = {
   price5_15: number | '';
   price16_30: number | '';
   coverImage: string;
-  gallery: string[]; // URL-ы изображений (в БД отправляем как imagesCsv)
+  gallery: string[];
   description: string;
   isFeatured: boolean;
 };
@@ -38,33 +50,26 @@ const slugify = (s: string) =>
     .replace(/[^a-z0-9]+/gi, '-')
     .replace(/^-+|-+$/g, '');
 
-// ПУБЛИЧНЫЕ ENV (должны быть заданы в Vercel → Project → Settings → Environment Variables)
-const CLOUD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
-const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-
-// ---------- прямой аплоад через fetch (альтернатива виджету) ----------
+/** Прямой upload в Cloudinary через fetch (как альтернатива виджету) */
 async function uploadToCloudinary(file: File): Promise<string> {
-  if (!CLOUD_NAME || !CLOUD_PRESET) {
-    throw new Error('Не заданы NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME или NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET');
-  }
+  if (!cloudOk) throw new Error('Cloudinary env not configured');
   const fd = new FormData();
   fd.append('file', file);
   fd.append('upload_preset', CLOUD_PRESET);
-
   const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
     method: 'POST',
     body: fd,
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error?.message || 'Upload failed');
-  return data.secure_url as string; // публичная ссылка
+  return data.secure_url as string;
 }
-// ---------------------------------------------------------------------
 
 export default function AdminNewCarPage() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [notice, setNotice] = useState<string>('');
+  const [notice, setNotice] = useState('');
+
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
 
@@ -106,7 +111,6 @@ export default function AdminNewCarPage() {
         key === 'price2_4' ||
         key === 'price5_15' ||
         key === 'price16_30';
-
       const value = isNumericKey ? ((raw === '' ? '' : Number(raw)) as any) : (raw as any);
 
       if (key === 'title') {
@@ -118,9 +122,8 @@ export default function AdminNewCarPage() {
       set(key as any, value);
     };
 
-  const removeFromGallery = (url: string) => {
+  const removeFromGallery = (url: string) =>
     set('gallery', form.gallery.filter((x) => x !== url));
-  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -136,9 +139,8 @@ export default function AdminNewCarPage() {
     }
 
     const imagesCsv = form.gallery.join(',');
-
-    const toNum = (val: number | '' | undefined) =>
-      typeof val === 'number' && !Number.isNaN(val) ? val : 0;
+    const toNum = (v: number | '' | undefined) =>
+      typeof v === 'number' && !Number.isNaN(v) ? v : 0;
 
     const payload = {
       slug: form.slug || slugify(form.title),
@@ -170,12 +172,10 @@ export default function AdminNewCarPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-
         if (!res.ok) {
           const txt = await res.text().catch(() => '');
           throw new Error(txt || `HTTP ${res.status}`);
         }
-
         router.push('/admin/cars');
         router.refresh();
       } catch (err: any) {
@@ -422,41 +422,42 @@ export default function AdminNewCarPage() {
                   onChange={onChange('coverImage')}
                 />
 
-                {/* Вариант 1: Виджет Cloudinary */}
-                <CldUploadWidget
-                  uploadPreset={CLOUD_PRESET}
-                  options={{
-                    cloudName: CLOUD_NAME,
-                    multiple: false,
-                    sources: ['local', 'camera', 'url'],
-                  }}
-                  onError={(err) => {
-                    console.error('Cloudinary error (cover):', err);
-                    alert('Ошибка загрузки в Cloudinary (обложка). Проверьте preset и домены.');
-                  }}
-                  onUpload={(result: any) => {
-                    const url = result?.info?.secure_url as string | undefined;
-                    if (url) set('coverImage', url);
-                  }}
-                >
-                  {({ open }) => (
-                    <button
-                      type="button"
-                      onClick={() => open?.()}
-                      className="whitespace-nowrap rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800"
-                    >
-                      Загрузить
-                    </button>
-                  )}
-                </CldUploadWidget>
+                {/* Виджет Cloudinary — показываем только если конфиг задан */}
+                {cloudOk ? (
+                  <CldUploadWidget
+                    uploadPreset={CLOUD_PRESET}
+                    options={{ cloudName: CLOUD_NAME, multiple: false, sources: ['local', 'camera', 'url'] }}
+                    onError={(err) => {
+                      console.error('Cloudinary error (cover):', err);
+                      alert('Ошибка загрузки в Cloudinary (обложка).');
+                    }}
+                    onUpload={(result: any) => {
+                      const url = result?.info?.secure_url as string | undefined;
+                      if (url) set('coverImage', url);
+                    }}
+                  >
+                    {({ open }) => (
+                      <button
+                        type="button"
+                        onClick={() => open?.()}
+                        className="whitespace-nowrap rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800"
+                      >
+                        Загрузить
+                      </button>
+                    )}
+                  </CldUploadWidget>
+                ) : (
+                  <span className="text-xs text-red-400">Cloudinary не настроен</span>
+                )}
 
-                {/* Вариант 2: Прямой аплоад */}
+                {/* Прямой аплоад — тоже прячем, если нет ENV */}
                 <label className="cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800">
                   {uploadingCover ? 'Загружаем…' : 'Файл…'}
                   <input
                     type="file"
                     accept="image/*"
                     className="hidden"
+                    disabled={!cloudOk}
                     onChange={async (e) => {
                       const f = e.target.files?.[0];
                       if (!f) return;
@@ -530,31 +531,31 @@ export default function AdminNewCarPage() {
                   +
                 </button>
 
-                {/* Виджет Cloudinary (множественный) */}
-                <CldUploadWidget
-                  uploadPreset={CLOUD_PRESET}
-                  options={{ cloudName: CLOUD_NAME, multiple: true, sources: ['local', 'camera', 'url'] }}
-                  onError={(err) => {
-                    console.error('Cloudinary error (gallery):', err);
-                    alert('Ошибка загрузки (галерея).');
-                  }}
-                  onUpload={(result: any) => {
-                    const url = result?.info?.secure_url as string | undefined;
-                    if (url) set('gallery', [...form.gallery, url]);
-                  }}
-                >
-                  {({ open }) => (
-                    <button
-                      type="button"
-                      onClick={() => open?.()}
-                      className="whitespace-nowrap rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800"
-                    >
-                      Загрузить
-                    </button>
-                  )}
-                </CldUploadWidget>
+                {cloudOk ? (
+                  <CldUploadWidget
+                    uploadPreset={CLOUD_PRESET}
+                    options={{ cloudName: CLOUD_NAME, multiple: true, sources: ['local', 'camera', 'url'] }}
+                    onError={(err) => {
+                      console.error('Cloudinary error (gallery):', err);
+                      alert('Ошибка загрузки (галерея).');
+                    }}
+                    onUpload={(result: any) => {
+                      const url = result?.info?.secure_url as string | undefined;
+                      if (url) set('gallery', [...form.gallery, url]);
+                    }}
+                  >
+                    {({ open }) => (
+                      <button
+                        type="button"
+                        onClick={() => open?.()}
+                        className="whitespace-nowrap rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800"
+                      >
+                        Загрузить
+                      </button>
+                    )}
+                  </CldUploadWidget>
+                ) : null}
 
-                {/* Прямой аплоад (множественный) */}
                 <label className="cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800">
                   {uploadingGallery ? 'Загружаем…' : 'Файлы…'}
                   <input
@@ -562,6 +563,7 @@ export default function AdminNewCarPage() {
                     multiple
                     accept="image/*"
                     className="hidden"
+                    disabled={!cloudOk}
                     onChange={async (e) => {
                       const files = Array.from(e.target.files || []);
                       if (files.length === 0) return;
@@ -593,7 +595,7 @@ export default function AdminNewCarPage() {
                 </div>
               )}
 
-              <p className="text-xs text-zinc-500 break-all">
+              <p className="break-all text-xs text-zinc-500">
                 <span className="text-zinc-400">imagesCsv:</span> {imagesCsvPreview}
               </p>
 
@@ -604,6 +606,14 @@ export default function AdminNewCarPage() {
               >
                 {isPending ? 'Сохраняем…' : 'Сохранить'}
               </button>
+
+              {!cloudOk && (
+                <p className="mt-3 text-xs text-yellow-400">
+                  Подсказка: чтобы включить загрузку в Cloudinary на проде,
+                  добавьте переменные <code>NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME</code> и
+                  <code className="ml-1">NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET</code> в настройках Vercel.
+                </p>
+              )}
             </div>
           </aside>
         </form>
