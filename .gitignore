@@ -1,23 +1,18 @@
 # Node / Next
-node_modules/
-.next/
-out/
-dist/
+node_modules
+.next
+out
+dist
 
-# Env & локальные БД
+# локальные логи/кэш
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+.yarn
+.vercel
+.vscode
+
+# НИКОГДА не комитим .env
 .env
 .env.local
 .env.*.local
-prisma/dev.db
-
-# Локальные загрузки (если есть)
-uploads/
-public/uploads/
-
-# Vercel/Netlify
-.vercel/
-.netlify/
-
-# Системное
-.DS_Store
-Thumbs.db
