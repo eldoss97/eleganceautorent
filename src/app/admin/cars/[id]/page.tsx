@@ -1,10 +1,19 @@
 import { prisma } from "@/lib/prisma";
 import CarForm from "@/components/CarForm";
+import DeleteButton from '../_DeleteButton';
+
 
 export default async function EditCarPage({ params }: { params: { id: string } }) {
   const id = Number(params.id);
   const car = await prisma.car.findUnique({ where: { id } });
   if (!car) return <div className="container-max py-8">Авто не найдено</div>;
+  <header className="flex items-center justify-between gap-3 border-b border-zinc-900 px-4 py-5">
+  <h1 className="text-lg font-semibold">Редактировать авто</h1>
+  <div className="flex gap-2">
+    <DeleteButton id={car.id} title={car.title} />
+  </div>
+</header>
+
 
   return (
     <div className="container-max py-8 space-y-6">
