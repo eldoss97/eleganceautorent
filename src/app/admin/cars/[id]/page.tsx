@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import CarForm from "@/components/CarForm";
+import DeleteButton from '../_DeleteButton';
+
 
 export default async function EditCarPage({ params }: { params: { id: string } }) {
   const id = Number(params.id);
